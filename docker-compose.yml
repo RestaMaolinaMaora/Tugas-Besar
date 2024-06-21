@@ -1,0 +1,113 @@
+version: '3.9'
+
+services:
+  mysql-master:
+    image: mysql:5.7
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: apotek
+      MYSQL_USER: resta
+      MYSQL_PASSWORD: Resta
+    volumes:
+      - mysql-master-data:/var/lib/mysql
+    command: >
+      --server-id=1
+      --log-bin=mysql-bin
+      --binlog-format=row
+    networks:
+      - backend
+
+  mysql-slave1:
+    image: mysql:5.7
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: slave1pwd
+      MYSQL_DATABASE: apotek
+      MYSQL_USER: moy
+      MYSQL_PASSWORD: yoo
+    depends_on:
+      - mysql-master
+    volumes:
+      - mysql-slave1-data:/var/lib/mysql
+    command: >
+      --server-id=2
+      --relay-log=relay-log
+      --log-slave-updates=1
+      --read-only=1
+    networks:
+      - backend
+
+  mysql-slave2:
+    image: mysql:5.7
+    ports:
+      - "3308:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: slave2pwd
+      MYSQL_DATABASE: apotek
+      MYSQL_USER: bund
+      MYSQL_PASSWORD: doo
+    depends_on:
+      - mysql-master
+    volumes:
+      - mysql-slave2-data:/var/lib/mysql
+    command: >
+      --server-id=3
+      --relay-log=relay-log
+      --log-slave-updates=1
+      --read-only=1
+    networks:
+      - backend
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    networks:
+      - backend
+
+  postgres:
+    image: postgres:latest
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_PASSWORD: mysecretpassword
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - backend
+
+  php:
+    build: ./php
+    volumes:
+      - ./php:/var/www/html
+    ports:
+      - "8080:80"
+    networks:
+      - backend
+
+  node:
+    build: ./node
+    volumes:
+      - ./node:/usr/src/app
+    ports:
+      - "3000:3000"
+    command: npm start
+    networks:
+      - backend
+
+volumes:
+  mysql-master-data:
+  mysql-slave1-data:
+  mysql-slave2-data:
+  postgres-data:
+
+networks:
+  backend:
+    driver: bridge
